@@ -10,6 +10,7 @@ class Course(models.Model):
     start_date = models.DateField()
     end_date = models.DateField()
     students = models.ManyToManyField(Student)
+    number_students = models.IntegerField()
 
     def __str__(self):
         return self.name

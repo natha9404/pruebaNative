@@ -4,7 +4,10 @@ from util.ResponseBuilder import Response_Builder
 from students.models import Student
 from .models import Course
 from datetime import datetime
+import dateutil.relativedelta
 from .serializer import *
+from django.db.models import Count
+from django.db.models.aggregates import Max
 import pytz
 import json
 
@@ -27,6 +30,7 @@ class AddCourse(APIView):
             end_time = request.data['end_time']
             start_date = request.data['start_date']
             end_date = request.data['end_date']
+            number_students = 0
 
             course = Course()
             course.name = name
@@ -34,6 +38,7 @@ class AddCourse(APIView):
             course.end_time = end_time
             course.start_date = start_date
             course.end_date = end_date
+            course.number_students = number_students
             course.save()
 
             return Resp.send_response(_status=200, _msg='OK', _data='The course was created successfully.')
@@ -132,11 +137,45 @@ class AddStudentCourse(APIView):
                 student = Student.objects.get(id=student_id)
                 course.students.add(student)
 
+            number_students = course.students.count()
+            course.number_students = number_students
+            course.save()
+
             return Resp.send_response(_status=200, _msg='OK', _data='The students were added successfully')
 
         except Exception as e:
             print(e)
             return Resp.send_response(_status=503, _msg='It is not possible to add students.')
+
+
+class DeleteStudentCourse(APIView):
+    def dispatch(self, request, *args, **kwargs):
+        return super(DeleteStudentCourse, self).dispatch(request, *args, **kwargs)
+
+    def post(self, request):
+
+        try:
+            course_id = request.data['course_id']
+            students_id = request.data['students_id']
+
+            try:
+                course = Course.objects.get(id=course_id)
+            except:
+                return Resp.send_response(_status=503, _msg='The course does not exist.')
+
+            for student_id in students_id:
+                student = Student.objects.get(id=student_id)
+                course.students.remove(student)
+
+            number_students = course.students.count()
+            course.number_students = number_students
+            course.save()
+
+            return Resp.send_response(_status=200, _msg='OK', _data='The students were deleted successfully')
+
+        except Exception as e:
+            print(e)
+            return Resp.send_response(_status=503, _msg='It is not possible to deleted students.')
 
 
 class ListCoursesStudents(APIView):
@@ -163,6 +202,28 @@ class ListCourseStudents(APIView):
 
             return Resp.send_response(_status=200, _msg='OK', _data=serialized_courses.data)
 
+        except Exception as e:
+            print(e)
+            return Resp.send_response(_status=503, _msg='It is not possible to list the courses')
+
+
+class GetMaxNumberCourses(APIView):
+    def dispatch(self, request, *args, **kwargs):
+        return super(GetMaxNumberCourses, self).dispatch(request, *args, **kwargs)
+
+    def get(self, request):
+        try:
+            date_now = datetime.now()
+
+            d2 = date_now - dateutil.relativedelta.relativedelta(months=6)
+
+            print(date_now)
+            print(d2)
+
+            courses = Course.objects.filter(start_date__range=[d2, date_now]).annotate(max_value=Max('number_students')).order_by('-max_value')[:3]
+            serialized_courses = SerializerCoursesStudents(courses, many=True)
+
+            return Resp.send_response(_status=200, _msg='OK', _data=serialized_courses.data)
         except Exception as e:
             print(e)
             return Resp.send_response(_status=503, _msg='It is not possible to list the courses')

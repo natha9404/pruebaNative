@@ -101,5 +101,6 @@ class DeleteStudents(APIView):
 
             return Resp.send_response(_status=200, _msg='OK', _data='The student was deleted successfully')
 
-        except:
+        except Exception as e:
             return Resp.send_response(_status=503, _msg='The student could not be deleted.')
+
